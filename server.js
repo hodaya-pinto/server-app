@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { S3Client, PutObjectCommand, ListObjectsCommand } = require("@aws-sdk/client-s3");
 
 const app = express();
 const port = 5000;
@@ -44,6 +44,30 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Upload failed" });
+  }
+});
+
+app.get("/get-images", async (req, res) => {
+  try {
+    const listParams = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+    };
+
+    const { Contents } = await s3.send(new ListObjectsCommand(listParams));
+
+    if (!Contents) {
+      return res.status(404).json({ error: "No images found" });
+    }
+
+    // Generate the public URLs of the images
+    const imageUrls = Contents.map((item) => {
+      return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`;
+    });
+
+    res.json({ images: imageUrls });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch images from S3" });
   }
 });
 
