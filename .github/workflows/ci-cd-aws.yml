@@ -45,4 +45,27 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-     
+      - name: Download ECS Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition server-task --query taskDefinition > ecs-task-definition.json
+
+      - name: Clean Up Task Definition JSON
+        run: |
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' ecs-task-definition.json > cleaned-task-def.json
+
+      - name: Update ECS Task Definition
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: web-app
+          IMAGE_TAG: server-app-${{ github.sha }}
+        run: |
+          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Updating image to: $IMAGE"
+          jq --arg IMAGE "$IMAGE" '.containerDefinitions[0].image = $IMAGE' cleaned-task-def.json > updated-task-def.json
+          aws ecs register-task-definition --cli-input-json file://updated-task-def.json
+
+      - name: Deploy New Task Definition to ECS Service
+        run: |  
+          aws ecs update-service --cluster WebCluster --service server-task --task-definition server-task --force-new-deployment 
+
+
