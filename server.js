@@ -8,7 +8,7 @@ const app = express();
 const port = 5000;
 
 // Check if running on EKS or locally
-app.use(cors({ origin: "http://localhost:3001" }));
+app.use(cors({ origin: "*" }));
 
 const s3Config =
   process.env.NODE_ENV !== "development"
